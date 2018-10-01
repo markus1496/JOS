@@ -59,7 +59,9 @@ mon_kerninfo(int argc, char **argv, struct Trapframe *tf)
 int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
-	// Pomocne premenne na vypis
+	// Pomocne premenne na vypis + pointrovu aritmetiku.
+	// uint32_t je len inak zapisany unsigned int, potrebujeme 32-bitovy, lebo
+	// uz sme v chranenom mode procesora a pouzivame 32-bitovy mod
 	uint32_t ebp, eip, args[5];
 
 	// Pomocna struktura, kam budu zapisane info o funkcii, ktoru backtracujeme.
@@ -75,7 +77,7 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 	// Kedze chceme aj posledne hodnoty po tom ako sa ebp rovna null pointeru,
 	// musime pouzit do/while
 	do {
-		// Adresa na vratenie po skonceni funkcie je prva po ebp
+		// Adresa na vratenie po skonceni funkcie je prva po ebp.
 		// Musime pretypovat na pointer, kedze chceme hodnotu na tejto adrese.
 		// Tento "array" zapis je to iste ako *(((uint32_t *)ebp) + 1)
 		eip = ((uint32_t *)ebp)[1];

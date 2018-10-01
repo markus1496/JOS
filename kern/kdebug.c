@@ -184,7 +184,7 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 	// Viac info v inc/stab.h
 	stab_binsearch(stabs, &lline, &rline, N_SLINE, addr);
 	
-	// Ak sa nenasli zhody, rline bude lline - 1.
+	// Ak sa nenasla zhoda, rline bude lline - 1, cize zlyha if.
 	// Viac info vyssie v tomto subore o funkcii stab_binsearch().
 	if(lline <= rline) {
 
