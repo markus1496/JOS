@@ -168,8 +168,8 @@ cga_init(void)
 
 	ansi_fmt_ptr = 0;
 
-	foreground_color = 11;
-	background_color = 2;
+	foreground_color = 7;
+	background_color = 0;
 
 	state = NORMAL;
 }
@@ -444,6 +444,19 @@ cons_getc(void)
 		return c;
 	}
 	return 0;
+}
+
+void
+cons_ctrl_putc(int c)
+{
+	serial_putc(c);
+	lpt_putc(c);
+}
+
+void
+cons_disp_putc(int c)
+{
+	cga_putc(c);
 }
 
 // output a character to the console

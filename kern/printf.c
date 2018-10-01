@@ -9,8 +9,8 @@
 char ansi_fmt_buffer[100];
 uint16_t ansi_fmt_ptr = 0;
 
-uint16_t foreground_color = 11;
-uint16_t background_color = 2;
+uint16_t foreground_color = 7;
+uint16_t background_color = 0;
 
 static const uint8_t ansi_to_cga[16] = {
 	0, 4, 2, 6, 1, 5, 3, 7, 8, 12, 10, 14, 9, 13, 11, 15
@@ -81,26 +81,28 @@ putch(int ch, int *cnt)
 {
 	// cputchar(ch);
 	*cnt++;
-
+	cons_ctrl_putc(ch);
 	switch(state)
 	{
 		case NORMAL:
 		{
-			if(ch == '\x1B')
+			if(ch == '\x1b')
 				state = START;
 			else
-				cputchar(ch);
+				cons_disp_putc(ch);
 			break;
 		}
 		
 		case START: 
 		{
-			if(ch == ']')
+			if(ch == '[')
+			{
 				state = ESCAPING;
+			}
 			else
 			{
-				cputchar('\x1b');
-				cputchar(ch);
+				cons_disp_putc('\x1b');
+				cons_disp_putc(ch);
 			}
 		}
 
