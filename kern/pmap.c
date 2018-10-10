@@ -282,9 +282,8 @@ page_init(void)
 	// NB: DO NOT actually touch the physical memory corresponding to
 	// free pages!
 	page_free_list = NULL;
-	size_t i;
 
-	for (i = 0; i < npages; i++) {
+	for (size_t i = 0; i < npages; i++) {
 		if (i == 0) {
 			pages[i].pp_ref = 1;
 			pages[i].pp_link = NULL;
@@ -292,10 +291,10 @@ page_init(void)
 			pages[i].pp_ref = 0;
 			pages[i].pp_link = page_free_list;
 			page_free_list = &pages[i];
-		} else if ((i << PGSHIFT) < EXTPHYSMEM) {
+		} else if ((page2pa(&pages[i]) + PGSIZE >= IOPHYSMEM) && (page2pa(&pages[i]) < EXTPHYSMEM)) {
 			pages[i].pp_ref = 1;
 			pages[i].pp_link = NULL;
-		} else if (page2kva(&pages[i]) < boot_alloc(0)) {
+		} else if ((page2pa(&pages[i]) + PGSIZE >= EXTPHYSMEM) && (page2kva(&pages[i]) < boot_alloc(0))) {
 			pages[i].pp_ref = 1;
 			pages[i].pp_link = NULL;
 		} else {
@@ -347,7 +346,7 @@ page_free(struct PageInfo *pp)
 	// pp->pp_link is not NULL.
 
 	if (pp->pp_ref > 0) panic("page_free: Page being freed is still referred to by pointers.\n");
-    if (pp->pp_link) panic("page_free: Page being freed still has links.\n");
+    if (pp->pp_link) panic("page_free: Page being freed still has links to the other pages.\n");
 
 	pp->pp_link = page_free_list;
 	page_free_list = pp;
