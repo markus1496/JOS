@@ -103,7 +103,30 @@ boot_alloc(uint32_t n)
 	//
 	// LAB 2: Your code here.
 
-	return NULL;
+	/* Riešime tri veci:
+	 * 		1. Je dostatok pamäte? Ak nie treba panikáriť.
+	 * 		2. Je n == 0, čiže chceme len vrátiť adresu ďalšej voľnej stránky bez alokovania.
+	 * 		3. Je n > 0, čiže chceme alokovať n bajtov a vrátiť adresu na začiatok alokovanej pamäte.
+	 * 
+	 * Ako zistiť či máme dostatok pamäte?
+	 * 		Máme k dispozícii premennú "npages", ktorá obsahuje množstvo fyzickej pamäte, ale v stránkach a nie bajtoch.
+	 * 		Preto to buď musíme vynásobiť veľkosťou stránky (PGSIZE) alebo shiftnúť do ľava o PGSHIFT,
+	 * 		ako som to spravil ja (malo by to byť to isté, len shiftovanie je možno rýchlejšie).
+	 * 		Tak dostaneme počet dostupnej fyzickej pamäte. My sme ale dostali v argumente len počet bajtov, ktoré chcú alokovať
+	 * 		tak musíme zistiť či by sme to nepresiahli. "nextfree" je pointer (virtuálna adresa) na miesto, kde sa nachádza ďalšia voľná pamäť.
+	 * 		Keď ku nemu pričítame "n" a zaokrúhlime ho dohora, na číslo deliteľné PGSIZE (lebo alokujeme po stránkach 4KB a nie bajtoch)
+	 * 		dostaneme teoretickú virtuálnu adresu, kde by končila alokovaná stránka. Ale samozrejme musíme pracovať buď s virtuálnymi alebo fyzickými adresami
+	 * 		ak ich chceme porovnávať a preto som použil makro PADDR, ktoré premení virtuálnu adresu na fyzickú. Viac info o PADDR v "kern/pmap.h".
+	 */
+	if (PADDR(ROUNDUP(nextfree + n, PGSIZE)) > npages << PGSHIFT) panic("boot_alloc: Out of memory\n");
+
+	// Do resultu dáme nextfree, lebo v oboch zvyšných pripadoch ho určite budeme vracať.
+	result = nextfree;
+
+	// Ak ideme alokovať (teda n > 0), tak PO ULOŽENÍ! do resultu navýšime nextfree o zaokrúhlený počet bajtov na veľkosť stránky 4KB.
+    if (n > 0) nextfree += ROUNDUP(n, PGSIZE);
+
+	return result;
 }
 
 // Set up a two-level page table:
@@ -149,6 +172,13 @@ mem_init(void)
 	// to initialize all fields of each struct PageInfo to 0.
 	// Your code goes here:
 
+	/* Našou úlohou (zatiaľ) je alokovať pole štruktúr PageInfo a uložiť ho do pages.
+	 * Ak ste niekedy už používali malloc v C, tak je to to isté.
+	 * Po tom ako ho alokujeme, tak vynulujeme jeho obsah pomocou memsetu.
+	 * Viac info o funkcii memset v "lib/string.c".
+	 */
+	pages = (struct PageInfo *) boot_alloc(sizeof(struct PageInfo) * npages);
+	memset(pages, 0, sizeof(struct PageInfo) * npages);
 
 	//////////////////////////////////////////////////////////////////////
 	// Now that we've allocated the initial kernel data structures, we set
@@ -251,11 +281,28 @@ page_init(void)
 	// Change the code to reflect this.
 	// NB: DO NOT actually touch the physical memory corresponding to
 	// free pages!
+	page_free_list = NULL;
 	size_t i;
+
 	for (i = 0; i < npages; i++) {
-		pages[i].pp_ref = 0;
-		pages[i].pp_link = page_free_list;
-		page_free_list = &pages[i];
+		if (i == 0) {
+			pages[i].pp_ref = 1;
+			pages[i].pp_link = NULL;
+		} else if (i < npages_basemem) {
+			pages[i].pp_ref = 0;
+			pages[i].pp_link = page_free_list;
+			page_free_list = &pages[i];
+		} else if ((i << PGSHIFT) < EXTPHYSMEM) {
+			pages[i].pp_ref = 1;
+			pages[i].pp_link = NULL;
+		} else if (page2kva(&pages[i]) < boot_alloc(0)) {
+			pages[i].pp_ref = 1;
+			pages[i].pp_link = NULL;
+		} else {
+			pages[i].pp_ref = 0;
+			pages[i].pp_link = page_free_list;
+			page_free_list = &pages[i];
+		}
 	}
 }
 
@@ -274,8 +321,18 @@ page_init(void)
 struct PageInfo *
 page_alloc(int alloc_flags)
 {
-	// Fill this function in
-	return 0;
+	struct PageInfo *result = NULL;
+
+	if(page_free_list) {
+		result = page_free_list;
+		page_free_list = page_free_list->pp_link;
+
+		result->pp_link = NULL;
+
+		if(alloc_flags & ALLOC_ZERO) memset(page2kva(result), 0, PGSIZE);
+	}
+
+	return result;
 }
 
 //
@@ -288,6 +345,12 @@ page_free(struct PageInfo *pp)
 	// Fill this function in
 	// Hint: You may want to panic if pp->pp_ref is nonzero or
 	// pp->pp_link is not NULL.
+
+	if (pp->pp_ref > 0) panic("page_free: Page being freed is still referred to by pointers.\n");
+    if (pp->pp_link) panic("page_free: Page being freed still has links.\n");
+
+	pp->pp_link = page_free_list;
+	page_free_list = pp;
 }
 
 //
