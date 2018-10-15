@@ -118,7 +118,7 @@ boot_alloc(uint32_t n)
 	 * 		dostaneme teoretickú virtuálnu adresu, kde by končila alokovaná stránka. Ale samozrejme musíme pracovať buď s virtuálnymi alebo fyzickými adresami
 	 * 		ak ich chceme porovnávať a preto som použil makro PADDR, ktoré premení virtuálnu adresu na fyzickú. Viac info o PADDR v "kern/pmap.h".
 	 */
-	if (PADDR(ROUNDUP(nextfree + n, PGSIZE)) > npages << PGSHIFT) panic("boot_alloc: Out of memory\n");
+	if (PADDR(ROUNDUP(nextfree + n, PGSIZE)) > 4*1024*1024) panic("boot_alloc: Out of memory\n");
 
 	// Do resultu dáme nextfree, lebo v oboch zvyšných pripadoch ho určite budeme vracať.
 	result = nextfree;
@@ -389,7 +389,29 @@ pte_t *
 pgdir_walk(pde_t *pgdir, const void *va, int create)
 {
 	// Fill this function in
-	return NULL;
+	size_t pg_dir_index = PDX(va);
+	pde_t *pg_dir_entry = pgdir[pg_dir_index];
+	pte_t *pg_table;
+
+	if(!(*pg_dir_entry & PTE_P)) {
+		if(!create)
+			return NULL;
+
+		struct PageInfo *new_page_entry = page_alloc(ALLOC_ZERO);
+
+		if(!new_page_entry)
+			return NULL;
+
+		*pg_dir_entry = page2pa(new_page_entry) | PTE_P | PTE_W | PTE_U;
+		new_page_entry->pp_ref++;
+		pg_table = (pte_t *) KADDR(page2pa((struct PageInfo *) new_page_entry));
+	}
+	else
+	{
+		pg_table = KADDR(PTE_ADDR(*pg_dir_entry));
+	}
+
+	return &pg_table[PTX(va)];
 }
 
 //
