@@ -287,14 +287,7 @@ page_init(void)
 		if (i == 0) {
 			pages[i].pp_ref = 1;
 			pages[i].pp_link = NULL;
-		} else if (i < npages_basemem) {
-			pages[i].pp_ref = 0;
-			pages[i].pp_link = page_free_list;
-			page_free_list = &pages[i];
-		} else if ((page2pa(&pages[i]) + PGSIZE >= IOPHYSMEM) && (page2pa(&pages[i]) < EXTPHYSMEM)) {
-			pages[i].pp_ref = 1;
-			pages[i].pp_link = NULL;
-		} else if ((page2pa(&pages[i]) + PGSIZE >= EXTPHYSMEM) && (page2kva(&pages[i]) < boot_alloc(0))) {
+		} else if ((page2pa(&pages[i]) + PGSIZE >= IOPHYSMEM) && (page2kva(&pages[i]) < boot_alloc(0))) {
 			pages[i].pp_ref = 1;
 			pages[i].pp_link = NULL;
 		} else {
@@ -390,7 +383,7 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 {
 	// Fill this function in
 	size_t pg_dir_index = PDX(va);
-	pde_t *pg_dir_entry = pgdir[pg_dir_index];
+	pde_t *pg_dir_entry = &pgdir[pg_dir_index];
 	pte_t *pg_table;
 
 	if(!(*pg_dir_entry & PTE_P)) {
