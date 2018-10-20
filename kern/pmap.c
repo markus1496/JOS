@@ -338,7 +338,7 @@ page_free(struct PageInfo *pp)
 	// pp->pp_link is not NULL.
 
 	if (pp->pp_ref > 0) panic("page_free: Page being freed is still referred to by pointers.\n");
-    if (pp->pp_link) panic("page_free: Page being freed still has links to the other pages.\n");
+    	if (pp->pp_link) panic("page_free: Page being freed still has links to the other pages.\n");
 
 	pp->pp_link = page_free_list;
 	page_free_list = pp;
@@ -513,7 +513,7 @@ page_remove(pde_t *pgdir, void *va)
 {
 	pte_t *page_table_entry;
 	struct PageInfo *page_pointer = page_lookup(pgdir, va, &page_table_entry);
-	if(!page_pointer || !(*page_table_entry || PTE_P)) return;
+	if(!page_pointer || !(*page_table_entry & PTE_P)) return;
 
 	page_decref(page_pointer);
 	*page_table_entry = 0;
